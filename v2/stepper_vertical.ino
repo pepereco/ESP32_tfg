@@ -145,10 +145,8 @@ void stepper_vertical_setup()
   reason_reset = esp_reset_reason();
 
   if (reason_reset == ESP_RST_POWERON || reason_reset == ESP_RST_UNKNOWN  ){
-    timerAlarmEnable(correction_servo_int);
     vertical_pos_state=4;
-    move_to_id(0);
-    timerAlarmDisable(correction_servo_int);
+    start_pos =1;
   }
 }
  

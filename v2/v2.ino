@@ -45,6 +45,7 @@ int vertical_velocity = 5000;
 int current_step_horizontal = 0;
 int once=1;
 int counter=1;
+int start_pos=0;
 
 static RTC_NOINIT_ATTR  int pos_reset; //Position before the soft reset during an action
 static RTC_NOINIT_ATTR  int action_reset; // 0-No action, 1-Flora, 2-...
@@ -88,6 +89,12 @@ void setup()
 void loop(){
 
   if (once==1){
+    if (start_pos ==1){
+      timerAlarmEnable(correction_servo_int);
+      move_to_id(0);
+      start_pos=0;
+      timerAlarmDisable(correction_servo_int);
+    }
     flora_rutine();
     once =0;
   }

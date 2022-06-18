@@ -330,7 +330,7 @@ void flora_read_send_data(int pos_id) {
 void flora_rutine(){
   enable_stepper_vertical();
   enable_servo();
-  for (int i = pos_reset+8; i<=60;i++){
+  for (int i = pos_reset+13; i<=60;i++){
     Serial.println("this is the new pos");
     Serial.println(i);
     //canvi de pis

@@ -5,7 +5,7 @@ int test;
 
 void IRAM_ATTR servo_correction_cb() {
   Serial.println("in servo correction cb");
-  if ((digitalRead(final_carrera_p2)==0) || (digitalRead(final_carrera_p3)==0) ){
+  if ((digitalRead(final_carrera_p2)==0 && start_pos==0) || (digitalRead(final_carrera_p3)==0) ){
     angular_pos_state=130;
     myservo.write(angular_pos_state);
     delay(100);  
