@@ -117,7 +117,6 @@ void IRAM_ATTR time_cb() {
  
 void stepper_vertical_setup()
 {
-  vertical_pos_state=4;
   
   correction_vertical_int = timerBegin(1, 80, true);
   timerAttachInterrupt(correction_vertical_int, &time_cb, true);
@@ -141,6 +140,16 @@ void stepper_vertical_setup()
    digitalWrite(enablePin,HIGH);
    digitalWrite(dirPin,LOW);
    vertical_velocity=VELOCITY_DOWN;
+
+   esp_reset_reason_t reason_reset;
+  reason_reset = esp_reset_reason();
+
+  if (reason_reset == ESP_RST_POWERON || reason_reset == ESP_RST_UNKNOWN  ){
+    timerAlarmEnable(correction_servo_int);
+    vertical_pos_state=4;
+    move_to_id(0);
+    timerAlarmDisable(correction_servo_int);
+  }
 }
  
 
@@ -257,13 +266,14 @@ void vertical_pos_2(){
         delayMicroseconds(vertical_velocity);
       }
     }
+    /*
     // Makes last pulses for center position
-    for(int x = 0; x < steps_ref; x++) {
+    for(int x = 0; x < steps_ref/4; x++) {
       digitalWrite(stepPin,HIGH);
       delayMicroseconds(vertical_velocity);
       digitalWrite(stepPin,LOW);
       delayMicroseconds(vertical_velocity);
-    }
+    }*/
     Serial.println("end pos2");
     //attachInterrupt(final_carrera_p2, vertical_pos2_interruption, FALLING);
     digitalWrite(enablePin,HIGH);
@@ -399,7 +409,7 @@ void go_up(){
   digitalWrite(enablePin,LOW);
   digitalWrite(dirPin,HIGH);
   vertical_velocity=VELOCITY_UP;
-  for(int x = 0; x < steps_ref*10; x++) {
+  for(int x = 0; x < steps_ref*5; x++) {
       digitalWrite(stepPin,HIGH);
       delayMicroseconds(vertical_velocity);
       digitalWrite(stepPin,LOW);

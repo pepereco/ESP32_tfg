@@ -19,24 +19,30 @@ PubSubClient client(espClient);
 
 void IRAM_ATTR watchdog_flora_cb() {
   Serial.println("doing reset");
+  disconnectMqtt();
   esp_restart();
 }
 
-/*
-void connectWifi() {
+
+void connectWifi(const char* wifi_ssid, const char* wifi_password) {
+  int start = millis();
   Serial.println("Connecting to WiFi...");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.begin(wifi_ssid, wifi_password);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+    if (millis()-start>10000){
+      connectWifi(wifi_ssid, wifi_password);
+      break;
+    }
   }
 
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("");
 }
-*/
+
 /*
 void disconnectWifi() {
   WiFi.disconnect(true);
@@ -188,6 +194,8 @@ bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopi
 
   char buffer[64];
 
+  connectMqtt();
+
   snprintf(buffer, 64, "%f", temperature);
   client.publish((baseTopic + "temperature").c_str(), buffer); 
   snprintf(buffer, 64, "%d", moisture); 
@@ -196,7 +204,7 @@ bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopi
   client.publish((baseTopic + "light").c_str(), buffer);
   snprintf(buffer, 64, "%d", conductivity);
   client.publish((baseTopic + "conductivity").c_str(), buffer);
-
+ 
   return true;
 }
 
@@ -261,10 +269,6 @@ void flora_setup() {
   BLEDevice::init("");
   BLEDevice::setPower(ESP_PWR_LVL_P7);
 
-  // connecting wifi and mqtt server
-  //connectWifi();
-  connectMqtt();
-
   //create watchdog for reading from flora actions
   watchdog_flora = timerBegin(2, 80, true);//configurem timer amb preescaler a 80
   timerAttachInterrupt(watchdog_flora, &watchdog_flora_cb, true);
@@ -275,7 +279,7 @@ void flora_setup() {
   reason_reset = esp_reset_reason();
 
   if (reason_reset == ESP_RST_POWERON || reason_reset == ESP_RST_UNKNOWN  ){
-    pos_reset=16;
+    pos_reset=15;
     action_reset =0; 
   }
 
@@ -293,8 +297,6 @@ void disconnect_wifi_mqtt(){
 
 
 void flora_read_send_data(int pos_id) {
-
-  flora_setup();
 
   Serial.println("pos before reset");
   Serial.println(pos_id);
@@ -328,45 +330,62 @@ void flora_read_send_data(int pos_id) {
 void flora_rutine(){
   enable_stepper_vertical();
   enable_servo();
-  for (int i = pos_reset +43; i<=60;i++){
+  for (int i = pos_reset+8; i<=60;i++){
     Serial.println("this is the new pos");
     Serial.println(i);
+    //canvi de pis
     if (i==30){
         move_to_id(0);
-        pos_reset+=16;
+        pos_reset+=15;
         i+=15;
       }
+    //Acabem
     else if (i==60){
         move_to_id(30); 
         move_to_id(45); 
         disable_stepper_vertical();
         disable_servo();
-        pos_reset=16;
+        pos_reset=15;
         break;
       }
     else{
+      //No hi ha reset
       if (action_reset == 0){
-        Serial.println(i-15);
-        move_to_id(i-15);
-        delay(3000);
-        Serial.println(i);
-        move_to_id(i);
-        disable_stepper_vertical();
-        servo_hard_shake();
-        //flora_read_send_data(pos_reset);
-        water(100);
-        lightON();
-        delay(1000);
-        lightOFF();
-        pos_reset +=1;
-        delay(3000);
+        if (i==15){
+          move_to_id(0); 
+        }
+        else if (i==45){
+          move_to_id(30); 
+          
+        }
+        else{
+          Serial.println(i-15);
+          move_to_id(i-15);
+          delay(3000);
+          Serial.println(i);
+          move_to_id(i);
+          disable_stepper_vertical();
+          servo_hard_shake();
+          flora_read_send_data(i);
+          water(100);
+          lightON();
+          delay(1000);
+          lightOFF();
+          delay(3000);
+        }
       
     }
+    //HI ha reset
     else if (action_reset == 1){
+      struct position_plant pos;
+      get_position(pos_reset, &pos);
+      vertical_pos_state = pos.vertical;
+      current_step_horizontal = pos.horizontal;
+      angular_pos_state = pos.angular;
       flora_read_send_data(pos_reset);
-      pos_reset +=1;
       }
     } 
+    pos_reset+=1;
   }
 }
     

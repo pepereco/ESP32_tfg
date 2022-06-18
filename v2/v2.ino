@@ -40,12 +40,16 @@ const position_plant array_positions_floor[positions_per_floor+1] ={
 
 //Global vars
 int vertical_pos_state;
+int angular_pos_state;    // variable to store the servo position
 int vertical_velocity = 5000;
 int current_step_horizontal = 0;
 int once=1;
 int counter=1;
+
 static RTC_NOINIT_ATTR  int pos_reset; //Position before the soft reset during an action
 static RTC_NOINIT_ATTR  int action_reset; // 0-No action, 1-Flora, 2-...
+static RTC_NOINIT_ATTR char ssid_wifi[100];
+static RTC_NOINIT_ATTR char pwd_wifi[100];
 
 Servo myservo;  // create servo object to control a servo
 
@@ -60,7 +64,16 @@ void setup()
 {
   Serial.begin(115200);
 
-  autoconnectAP();
+  esp_reset_reason_t reason_reset;
+  reason_reset = esp_reset_reason();
+
+  if (reason_reset == ESP_RST_POWERON || reason_reset == ESP_RST_UNKNOWN  ){
+    autoconnectAP(1);
+  }
+  else{
+    autoconnectAP(0);
+  }
+  
   stepper_vertical_setup();
   stepper_horizontal_setup();
   
@@ -73,6 +86,7 @@ void setup()
 }
 
 void loop(){
+
   if (once==1){
     flora_rutine();
     once =0;
@@ -89,20 +103,19 @@ void get_position(int id, struct position_plant *pos){
 }
 
 void move_to_pos(struct position_plant *pos){
-  if (((vertical_pos_state==2 || vertical_pos_state==1 )&& (pos->vertical==3 || pos->vertical==4) )|| ((vertical_pos_state== 3 || vertical_pos_state== 4) && (pos->vertical==2 || pos->vertical==1) ) ){
-    timerAlarmEnable(correction_servo_int);
+  if (vertical_pos_state!=pos->vertical){
+    if (((vertical_pos_state==2 || vertical_pos_state==1 )&& (pos->vertical==3 || pos->vertical==4) )|| ((vertical_pos_state== 3 || vertical_pos_state== 4) && (pos->vertical==2 || pos->vertical==1) ) ){
+      timerAlarmEnable(correction_servo_int);
+    }
+    if (vertical_pos_state>(pos->vertical)){
+      Serial.println("change vertical state 2");
+      timerAlarmEnable(correction_vertical_jam_int);
+      Serial.println(pos->vertical);
+    }
+    vertical_pos(pos->vertical);
+    timerAlarmDisable(correction_servo_int);
+    timerAlarmDisable(correction_vertical_jam_int);
   }
-  if (vertical_pos_state>(pos->vertical)){
-    Serial.println("change vertical state 2");
-    timerAlarmEnable(correction_vertical_jam_int);
-    Serial.println(pos->vertical);
-  }
-  vertical_pos(pos->vertical);
-  timerAlarmDisable(correction_servo_int);
-  timerAlarmDisable(correction_vertical_jam_int);
-
-
-  
 
   Serial.println("change servo state");
   Serial.println(pos->angular);
@@ -111,11 +124,14 @@ void move_to_pos(struct position_plant *pos){
   servo_to_pos(pos->angular);
   
 
-  /*
+  
   if ((pos->horizontal)==0){
     start_horiz();
   }
   else{
+    Serial.println("in horiz stepper");
+    Serial.println(pos->horizontal);
+    Serial.println(current_step_horizontal);
     if (current_step_horizontal<=pos->horizontal){
       front_horiz((pos->horizontal)- current_step_horizontal);
     }
@@ -123,7 +139,7 @@ void move_to_pos(struct position_plant *pos){
       back_horiz(current_step_horizontal-(pos->horizontal));
     }
   } 
-  */
+  
 }
 
 void move_to_id(int id){
@@ -133,35 +149,51 @@ void move_to_id(int id){
 }
 
 
-void autoconnectAP(){
-  
-  //CONNECT TO INTERNET
-  WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+void autoconnectAP(int ap){
 
+  WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+  
   //WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wm;
+  
+  if (ap ==1){
 
-  // reset settings - wipe stored credentials for testing
-  // these are stored by the esp library
-  //wm.resetSettings();
+    //CONNECT TO INTERNET
+  
+    // Automatically connect using saved credentials,
+    // if connection fails, it starts an access point with the specified name ( "AutoConnectAP"),
+    // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
+    // then goes into a blocking loop awaiting configuration and will return success result
+  
+    bool res;
+    res = wm.autoConnect("hort_vertical_AP","password"); // password protected ap
+  
+    if(!res) {
+        Serial.println("Failed to connect");
+        // ESP.restart();
+    } 
+    else {
+        strncpy(ssid_wifi, wm.getWiFiSSID().c_str(), 99);
+        strncpy(pwd_wifi, wm.getWiFiPass().c_str(), 99);
+        //ssid_wifi = wm.getWiFiSSID().c_str();
+        //pwd_wifi = wm.getWiFiPass().c_str();
+        Serial.println("credentials wifi");
+        Serial.println(ssid_wifi);
+        Serial.println(pwd_wifi);
+        
+        //if you get here you have connected to the WiFi    
+        Serial.println("connected...yeey :)");
+    }
 
-  // Automatically connect using saved credentials,
-  // if connection fails, it starts an access point with the specified name ( "AutoConnectAP"),
-  // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
-  // then goes into a blocking loop awaiting configuration and will return success result
-
-  bool res;
-  // res = wm.autoConnect(); // auto generated AP name from chipid
-  // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
-  res = wm.autoConnect("hort_vertical_AP","password"); // password protected ap
-
-  if(!res) {
-      Serial.println("Failed to connect");
-      // ESP.restart();
-  } 
-  else {
-      //if you get here you have connected to the WiFi    
-      Serial.println("connected...yeey :)");
   }
-
+  else {
+ 
+    Serial.println("credentials wifi");
+    Serial.println(ssid_wifi);
+    Serial.println(pwd_wifi);
+    connectWifi(ssid_wifi, pwd_wifi);
+  
+  }
+  
+  
 }

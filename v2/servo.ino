@@ -1,14 +1,15 @@
 
-int angular_pos_state;    // variable to store the servo position
 int vel_clockwise=50;
 int vel_anticlockwise=50;
 int test;
 
 void IRAM_ATTR servo_correction_cb() {
   Serial.println("in servo correction cb");
-  angular_pos_state=120;
-  myservo.write(angular_pos_state);
-  delay(100);  
+  if ((digitalRead(final_carrera_p2)==0) || (digitalRead(final_carrera_p3)==0) ){
+    angular_pos_state=130;
+    myservo.write(angular_pos_state);
+    delay(100);  
+  }
 }
 
 
@@ -16,22 +17,11 @@ void servo_setup() {
   
   correction_servo_int = timerBegin(0, 80, true);//configurem timer amb preescaler a 80
   timerAttachInterrupt(correction_servo_int, &servo_correction_cb, true);
-  timerAlarmWrite(correction_servo_int, 3000000, true); //definim temps en microsegons 1000000microsegons =1 segon, aixo es degut al preescaler de 80.
+  timerAlarmWrite(correction_servo_int, 300000, true); //definim temps en microsegons 1000000microsegons =1 segon, aixo es degut al preescaler de 80.
   timerAlarmDisable(correction_servo_int);
   
   myservo.attach(servo_control);
 
-  /*
-  esp_reset_reason_t reason_reset;
-  reason_reset = esp_reset_reason();
-  if (reason_reset == ESP_RST_POWERON || reason_reset == ESP_RST_UNKNOWN  ){
-    angular_pos_state=110;
-    myservo.write(angular_pos_state);
-  }
-  */
-  
-  //myservo.write(angular_pos_state);
-  //delay(100); 
 
 }
 

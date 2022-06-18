@@ -15,7 +15,7 @@ const char*   WIFI_SSID       = "MOVISTAR_F543";
 const char*   WIFI_PASSWORD   = "3327CAC745F77E9FBB62";
 
 //Serial number
-const String     SERIAL_NUM = "111111";
+const String     SERIAL_NUM = "1234567890";
 
 // MQTT topic gets defined by "<MQTT_BASE_TOPIC>/<MAC_ADDRESS>/<property>"
 // where MAC_ADDRESS is one of the values from FLORA_DEVICES array

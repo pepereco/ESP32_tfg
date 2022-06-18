@@ -53,6 +53,14 @@ void start_horiz(){
   current_step_horizontal=0;
 }
 
+void enable_horiz(){
+  
+}
+
+void disable_horiz(){
+  
+}
+
 void setOutput(int step)
 {
   digitalWrite(stepper_5v_pin1 , bitRead(stepsLookup[step], 0));
