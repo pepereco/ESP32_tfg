@@ -49,17 +49,10 @@ void front_horiz(int steps)
 void start_horiz(){
   //Starting position, by doing 10 revs back
   back_horiz(40760);
-  stepCounter_horiz=0;
   current_step_horizontal=0;
 }
 
-void enable_horiz(){
-  
-}
 
-void disable_horiz(){
-  
-}
 
 void setOutput(int step)
 {

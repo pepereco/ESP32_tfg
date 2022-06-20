@@ -2,6 +2,7 @@
 #include <Servo.h>
 #include "BLEDevice.h"
 #include <WiFi.h>
+#include <string.h>
 #include <PubSubClient.h>
 #include <WiFiManager.h> 
 

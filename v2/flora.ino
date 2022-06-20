@@ -12,6 +12,7 @@ static BLEUUID uuid_sensor_data("00001a01-0000-1000-8000-00805f9b34fb");
 static BLEUUID uuid_write_mode("00001a00-0000-1000-8000-00805f9b34fb");
 
 TaskHandle_t hibernateTaskHandle = NULL;
+bool sub_mqtt_flag = false;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -49,11 +50,44 @@ void disconnectWifi() {
   Serial.println("WiFi disonnected");
 }*/
 
-void connectMqtt() {
-  Serial.println("Connecting to MQTT...");
-  //espClient.setCACert(test_root_ca);
-  client.setServer(MQTT_HOST, MQTT_PORT);
 
+void callback_mqtt(char* topic, byte* message, unsigned int length) {
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print(". Message: ");
+  String messageTemp;
+  
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)message[i]);
+    messageTemp += (char)message[i];
+  }
+  Serial.println();
+
+  char *ret;
+
+  ret = strstr(topic, "water");
+  if (ret){
+    printf("found substring water at address %p\n", ret);
+  }
+  else{
+    ret = strstr(topic, "light");
+    if (ret)
+        printf("found substring light at address %p\n", ret);
+    else
+        printf("no substring found!\n");
+  }
+
+  sub_mqtt_flag = true;
+}
+
+
+void setUpMqtt(){
+  Serial.println("Connecting to MQTT...");
+  client.setServer(MQTT_HOST, MQTT_PORT);
+  client.setCallback(callback_mqtt);
+}
+
+void connectMqtt() {
   while (!client.connected()) {
     if (!client.connect(MQTT_CLIENTID, MQTT_USERNAME, MQTT_PASSWORD)) {
       Serial.print("MQTT connection failed:");
@@ -131,7 +165,7 @@ bool forceFloraServiceDataMode(BLERemoteService* floraService) {
   return true;
 }
 
-bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopic) {
+bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopicPub, String baseTopicSub) {
   //Read flora sensors characteristic and format the data
   BLERemoteCharacteristic* floraCharacteristic = nullptr;
 
@@ -197,14 +231,28 @@ bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopi
   connectMqtt();
 
   snprintf(buffer, 64, "%f", temperature);
-  client.publish((baseTopic + "temperature").c_str(), buffer); 
+  client.publish((baseTopicPub + "temperature").c_str(), buffer); 
   snprintf(buffer, 64, "%d", moisture); 
-  client.publish((baseTopic + "moisture").c_str(), buffer);
+  client.publish((baseTopicPub + "moisture").c_str(), buffer);
   snprintf(buffer, 64, "%d", light);
-  client.publish((baseTopic + "light").c_str(), buffer);
+  client.publish((baseTopicPub + "light").c_str(), buffer);
   snprintf(buffer, 64, "%d", conductivity);
-  client.publish((baseTopic + "conductivity").c_str(), buffer);
- 
+  client.publish((baseTopicPub + "conductivity").c_str(), buffer);
+
+  Serial.println(baseTopicSub.c_str());
+  client.subscribe(baseTopicSub.c_str());
+
+  //Wait to receive mqtt response message from server
+  int start = millis();
+  while ((millis() - start < 10000) && (sub_mqtt_flag == false)){
+    client.loop();
+  }
+  client.unsubscribe(baseTopicSub.c_str());
+  //if connection fails we also give some water
+  if (sub_mqtt_flag == false){
+    water(100);
+  }
+  sub_mqtt_flag=false;
   return true;
 }
 
@@ -215,8 +263,9 @@ bool processFloraService(BLERemoteService* floraService, char* deviceMacAddress,
     return false;
   }
 
-  String baseTopic = MQTT_BASE_TOPIC + "/" + "flora" + "/"+ pos_id + "/";
-  bool dataSuccess = readFloraDataCharacteristic(floraService, baseTopic);
+  String baseTopicPub = MQTT_BASE_TOPIC + "/" + "flora" + "/"+ pos_id + "/";
+  String baseTopicSub = MQTT_BASE_TOPIC + "/" + "water" + "/"+ pos_id ;
+  bool dataSuccess = readFloraDataCharacteristic(floraService, baseTopicPub, baseTopicSub);
 
   return dataSuccess;
 }
@@ -268,6 +317,7 @@ void flora_setup() {
   Serial.println("Initialize BLE client...");
   BLEDevice::init("");
   BLEDevice::setPower(ESP_PWR_LVL_P7);
+  setUpMqtt();
 
   //create watchdog for reading from flora actions
   watchdog_flora = timerBegin(2, 80, true);//configurem timer amb preescaler a 80
@@ -372,8 +422,7 @@ void flora_rutine(){
           delay(1000);
           lightOFF();
           delay(3000);
-        }
-      
+        }     
     }
     //HI ha reset
     else if (action_reset == 1){
