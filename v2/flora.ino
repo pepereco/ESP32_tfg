@@ -13,6 +13,7 @@ static BLEUUID uuid_write_mode("00001a00-0000-1000-8000-00805f9b34fb");
 
 TaskHandle_t hibernateTaskHandle = NULL;
 bool sub_mqtt_flag = false;
+int ml = 0;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -67,7 +68,7 @@ void callback_mqtt(char* topic, byte* message, unsigned int length) {
 
   ret = strstr(topic, "water");
   if (ret){
-    printf("found substring water at address %p\n", ret);
+    ml = atoi(messageTemp.c_str());
   }
   else{
     ret = strstr(topic, "light");
@@ -81,13 +82,10 @@ void callback_mqtt(char* topic, byte* message, unsigned int length) {
 }
 
 
-void setUpMqtt(){
+void connectMqtt() {
   Serial.println("Connecting to MQTT...");
   client.setServer(MQTT_HOST, MQTT_PORT);
   client.setCallback(callback_mqtt);
-}
-
-void connectMqtt() {
   while (!client.connected()) {
     if (!client.connect(MQTT_CLIENTID, MQTT_USERNAME, MQTT_PASSWORD)) {
       Serial.print("MQTT connection failed:");
@@ -108,12 +106,10 @@ void disconnectMqtt() {
 
 BLEClient* getFloraClient(BLEAddress floraAddress) {
   BLEClient* floraClient = BLEDevice::createClient();
-
   if (!floraClient->connect(floraAddress)) {
     Serial.println("- Connection failed, skipping");
     return nullptr;
   }
-
   Serial.println("- Connection successful");
   return floraClient;
 }
@@ -228,20 +224,23 @@ bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopi
 
   char buffer[64];
 
-  connectMqtt();
+  connectWifi(ssid_wifi, pwd_wifi);
 
+  connectMqtt();
+  Serial.println(baseTopicSub.c_str());
+  client.subscribe(baseTopicSub.c_str());
+
+  connectMqtt();
   snprintf(buffer, 64, "%f", temperature);
   client.publish((baseTopicPub + "temperature").c_str(), buffer); 
-  snprintf(buffer, 64, "%d", moisture); 
-  client.publish((baseTopicPub + "moisture").c_str(), buffer);
   snprintf(buffer, 64, "%d", light);
   client.publish((baseTopicPub + "light").c_str(), buffer);
   snprintf(buffer, 64, "%d", conductivity);
   client.publish((baseTopicPub + "conductivity").c_str(), buffer);
+  snprintf(buffer, 64, "%d", moisture); 
+  client.publish((baseTopicPub + "moisture").c_str(), buffer);
 
-  Serial.println(baseTopicSub.c_str());
-  client.subscribe(baseTopicSub.c_str());
-
+  
   //Wait to receive mqtt response message from server
   int start = millis();
   while ((millis() - start < 10000) && (sub_mqtt_flag == false)){
@@ -250,9 +249,10 @@ bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopi
   client.unsubscribe(baseTopicSub.c_str());
   //if connection fails we also give some water
   if (sub_mqtt_flag == false){
-    water(100);
+    ml = 100;
   }
   sub_mqtt_flag=false;
+  
   return true;
 }
 
@@ -317,12 +317,12 @@ void flora_setup() {
   Serial.println("Initialize BLE client...");
   BLEDevice::init("");
   BLEDevice::setPower(ESP_PWR_LVL_P7);
-  setUpMqtt();
 
   //create watchdog for reading from flora actions
   watchdog_flora = timerBegin(2, 80, true);//configurem timer amb preescaler a 80
   timerAttachInterrupt(watchdog_flora, &watchdog_flora_cb, true);
-  timerAlarmWrite(watchdog_flora, 60000000, true); //definim temps en microsegons 1000000microsegons =1 segon, aixo es degut al preescaler de 80.
+  //timerAlarmWrite(watchdog_flora, 60000000, true); //definim temps en microsegons 1000000microsegons =1 segon, aixo es degut al preescaler de 80.
+  timerAlarmWrite(watchdog_flora, 20000000, true);
   timerAlarmDisable(watchdog_flora);
 
   esp_reset_reason_t reason_reset;
@@ -380,6 +380,7 @@ void flora_read_send_data(int pos_id) {
 void flora_rutine(){
   enable_stepper_vertical();
   enable_servo();
+  ml =0;
   for (int i = pos_reset; i<=60;i++){
     Serial.println("this is the new pos");
     Serial.println(i);
@@ -402,7 +403,7 @@ void flora_rutine(){
       //No hi ha reset
       if (action_reset == 0){
         if (i==15){
-          move_to_id(0); 
+          move_to_id(0);  
         }
         else if (i==45){
           move_to_id(30); 
@@ -417,11 +418,6 @@ void flora_rutine(){
           disable_stepper_vertical();
           servo_hard_shake();
           flora_read_send_data(i);
-          water(100);
-          lightON();
-          delay(1000);
-          lightOFF();
-          delay(3000);
         }     
     }
     //HI ha reset
@@ -431,9 +427,12 @@ void flora_rutine(){
       vertical_pos_state = pos.vertical;
       current_step_horizontal = pos.horizontal;
       angular_pos_state = pos.angular;
+      disable_stepper_vertical();
+      disable_servo();
       flora_read_send_data(pos_reset);
       }
     } 
+    water(ml);
     pos_reset+=1;
   }
 }

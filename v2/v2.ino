@@ -90,6 +90,7 @@ void setup()
 void loop(){
 
   if (once==1){
+    
     if (start_pos ==1){
       timerAlarmEnable(correction_servo_int);
       move_to_id(0);
@@ -128,7 +129,7 @@ void move_to_pos(struct position_plant *pos){
   Serial.println("change servo state");
   Serial.println(pos->angular);
   //enable stepper vertical before servo move securing the position and not fall.
-  enable_stepper_vertical();
+  enable_servo();
   servo_to_pos(pos->angular);
   
 

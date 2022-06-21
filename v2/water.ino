@@ -6,6 +6,7 @@ void water_setup(){
 void water( int ml){
   //Starting point until the water is ready
   Serial.println("in water");
+  Serial.println(ml);
   digitalWrite(waterPin,HIGH);
   delay(2000);
   
