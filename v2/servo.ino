@@ -21,8 +21,6 @@ void servo_setup() {
   timerAlarmDisable(correction_servo_int);
   
   myservo.attach(servo_control);
-
-
 }
 
 
@@ -44,9 +42,10 @@ void servo_to_pos(int angular_pos){
   if (angular_pos < angular_pos_state){
       anticlockwise_servo(angular_pos);
     }
-    else if (angular_pos > angular_pos_state){
-      clockwise_servo(angular_pos);
-    }
+  else if (angular_pos > angular_pos_state){
+    clockwise_servo(angular_pos);
+  }
+  
 }
 
 void servo_hard_shake(void){

@@ -12,96 +12,12 @@ static BLEUUID uuid_sensor_data("00001a01-0000-1000-8000-00805f9b34fb");
 static BLEUUID uuid_write_mode("00001a00-0000-1000-8000-00805f9b34fb");
 
 TaskHandle_t hibernateTaskHandle = NULL;
-bool sub_mqtt_flag = false;
-int ml = 0;
-
-WiFiClient espClient;
-PubSubClient client(espClient);
 
 
 void IRAM_ATTR watchdog_flora_cb() {
   Serial.println("doing reset");
   disconnectMqtt();
   esp_restart();
-}
-
-
-void connectWifi(const char* wifi_ssid, const char* wifi_password) {
-  int start = millis();
-  Serial.println("Connecting to WiFi...");
-  WiFi.begin(wifi_ssid, wifi_password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-    if (millis()-start>10000){
-      connectWifi(wifi_ssid, wifi_password);
-      break;
-    }
-  }
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("");
-}
-
-/*
-void disconnectWifi() {
-  WiFi.disconnect(true);
-  Serial.println("WiFi disonnected");
-}*/
-
-
-void callback_mqtt(char* topic, byte* message, unsigned int length) {
-  Serial.print("Message arrived on topic: ");
-  Serial.print(topic);
-  Serial.print(". Message: ");
-  String messageTemp;
-  
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)message[i]);
-    messageTemp += (char)message[i];
-  }
-  Serial.println();
-
-  char *ret;
-
-  ret = strstr(topic, "water");
-  if (ret){
-    ml = atoi(messageTemp.c_str());
-  }
-  else{
-    ret = strstr(topic, "light");
-    if (ret)
-        printf("found substring light at address %p\n", ret);
-    else
-        printf("no substring found!\n");
-  }
-
-  sub_mqtt_flag = true;
-}
-
-
-void connectMqtt() {
-  Serial.println("Connecting to MQTT...");
-  client.setServer(MQTT_HOST, MQTT_PORT);
-  client.setCallback(callback_mqtt);
-  while (!client.connected()) {
-    if (!client.connect(MQTT_CLIENTID, MQTT_USERNAME, MQTT_PASSWORD)) {
-      Serial.print("MQTT connection failed:");
-      Serial.print(client.state());
-      Serial.println("Retrying...");
-      delay(MQTT_RETRY_WAIT);
-    }
-  }
-
-  Serial.println("MQTT connected");
-  Serial.println("");
-}
-
-void disconnectMqtt() {
-  client.disconnect();
-  Serial.println("MQTT disconnected");
 }
 
 BLEClient* getFloraClient(BLEAddress floraAddress) {
@@ -422,6 +338,7 @@ void flora_rutine(){
     }
     //HI ha reset
     else if (action_reset == 1){
+      //Localitzem el robot despres del reset
       struct position_plant pos;
       get_position(pos_reset, &pos);
       vertical_pos_state = pos.vertical;

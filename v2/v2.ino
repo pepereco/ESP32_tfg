@@ -41,9 +41,13 @@ const position_plant array_positions_floor[positions_per_floor+1] ={
 
 //Global vars
 int vertical_pos_state;
-int angular_pos_state;    // variable to store the servo position
-int vertical_velocity = 5000;
+int angular_pos_state=60;    // variable to store the servo position
 int current_step_horizontal = 0;
+int ml = 0;
+int mins =0;
+bool sub_mqtt_flag = false;
+
+
 int once=1;
 int counter=1;
 int start_pos=0;
@@ -62,9 +66,15 @@ hw_timer_t * correction_servo_int = NULL;
 hw_timer_t * watchdog_flora = NULL;
 hw_timer_t * correction_vertical_jam_int = NULL;
 
+WiFiClient espClient;
+PubSubClient client(espClient);
+
 void setup()
 {
   Serial.begin(115200);
+
+  //First water setup or everything gets wet
+  water_setup();
 
   esp_reset_reason_t reason_reset;
   reason_reset = esp_reset_reason();
@@ -80,7 +90,6 @@ void setup()
   stepper_horizontal_setup();
   
   flora_setup();
-  water_setup();
   light_setup();
 
   servo_setup();
@@ -90,14 +99,15 @@ void setup()
 void loop(){
 
   if (once==1){
+    /*
     
     if (start_pos ==1){
       timerAlarmEnable(correction_servo_int);
       move_to_id(0);
       start_pos=0;
       timerAlarmDisable(correction_servo_int);
-    }
-    flora_rutine();
+    }*/
+    light_rutine();
     once =0;
   }
   
@@ -203,6 +213,91 @@ void autoconnectAP(int ap){
     connectWifi(ssid_wifi, pwd_wifi);
   
   }
+}
+
+
+void callback_mqtt(char* topic, byte* message, unsigned int length) {
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print(". Message: ");
+  String messageTemp;
   
-  
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)message[i]);
+    messageTemp += (char)message[i];
+  }
+  Serial.println();
+
+  char *ret;
+
+  ret = strstr(topic, "water");
+  if (ret){
+    ml = atoi(messageTemp.c_str());
+  }
+  else{
+    ret = strstr(topic, "light_resp");
+    if (ret)
+        mins = atoi(messageTemp.c_str());
+        Serial.println("in mins response");
+        Serial.println(mins);
+  }
+
+  sub_mqtt_flag = true;
+}
+
+void connectWifi(const char* wifi_ssid, const char* wifi_password) {
+  int start = millis();
+  Serial.println("Connecting to WiFi...");
+  WiFi.begin(wifi_ssid, wifi_password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    if (millis()-start>10000){
+      connectWifi(wifi_ssid, wifi_password);
+      break;
+    }
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("");
+}
+
+
+void disconnectWifi() {
+  WiFi.disconnect(true);
+  Serial.println("WiFi disonnected");
+}
+
+void connectMqtt() {
+  static int retry_counter2=0;
+  Serial.println("Connecting to MQTT...");
+  client.setServer(MQTT_HOST, MQTT_PORT);
+  client.setCallback(callback_mqtt);
+  int retry_counter=0;
+  while (!client.connected()) {
+    if (!client.connect(MQTT_CLIENTID, MQTT_USERNAME, MQTT_PASSWORD)) {
+      Serial.print("MQTT connection failed:");
+      Serial.print(client.state());
+      Serial.println("Retrying...");
+      delay(MQTT_RETRY_WAIT);
+      retry_counter +=1;
+      if (retry_counter > 3){
+        retry_counter2 +=1;
+        connectWifi(ssid_wifi, pwd_wifi);
+        connectMqtt();  
+        break;
+      }
+      
+    }
+  }
+
+  Serial.println("MQTT connected");
+  Serial.println("");
+}
+
+void disconnectMqtt() {
+  client.disconnect();
+  Serial.println("MQTT disconnected");
 }

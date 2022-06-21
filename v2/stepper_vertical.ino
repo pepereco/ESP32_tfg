@@ -1,4 +1,4 @@
-
+int vertical_velocity = 5000;
 volatile int reajuste_pos=0;
 //params 
 const int steps_ref = 1000;
@@ -76,6 +76,7 @@ void IRAM_ATTR vertical_pos3_interruption()
 
 }
 
+/*
 void IRAM_ATTR vertical_pos4_interruption()
 {
 
@@ -88,7 +89,7 @@ void IRAM_ATTR vertical_pos4_interruption()
     detachInterrupt(final_carrera_p4);
   }
   
-}
+}*/
 
 
 void IRAM_ATTR time_cb() {
@@ -206,7 +207,7 @@ void vertical_pos_1(){
     //makes 400*3 pulses for being on top of button
     digitalWrite(dirPin,HIGH);
     vertical_velocity=VELOCITY_UP;
-    for(int x = 0; x < steps_ref*3; x++) {
+    for(int x = 0; x < steps_ref*10; x++) {
       digitalWrite(stepPin,HIGH);
       delayMicroseconds(vertical_velocity);
       digitalWrite(stepPin,LOW);
