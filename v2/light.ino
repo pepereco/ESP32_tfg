@@ -21,14 +21,17 @@ void lights(){
   disable_stepper_vertical();
   disable_servo();
   lightON();
-  delay(MIN * mins);
+  //delay(MIN * mins);
+  delay(mins);
   lightOFF();
 }
 
 void light_rutine(){
+  Serial.println("IN LIGHT RUTINE");
   enable_stepper_vertical();
   enable_servo();
-  for (int i = 15; i<=60;i++){
+  //for (int i = 15; i<=60;i++){
+  for (int i = 15; i<=17;i++){
     Serial.println("this is the new pos");
     Serial.println(i);
     //canvi de pis
@@ -87,3 +90,36 @@ void get_server_light(int pos){
   }
   sub_mqtt_flag=false;
 }
+
+bool request_start_lights(){
+  bool ret_value;
+  connectWifi(ssid_wifi, pwd_wifi);
+  connectMqtt();
+  client.subscribe((MQTT_BASE_TOPIC + "/" + "light_start_resp").c_str());
+  connectMqtt();
+  char buffer[64];
+  snprintf(buffer, 64, "%d", 1);
+  client.publish((MQTT_BASE_TOPIC + "/" + "light_start_req").c_str(), buffer); 
+  //Wait to receive mqtt response message from server
+  int start = millis();
+  while ((millis() - start < 10000) && (sub_mqtt_flag == false)){
+    client.loop();
+  }
+  client.unsubscribe((MQTT_BASE_TOPIC + "/" + "light_start_resp").c_str());
+  client.disconnect();
+  //if connection fails we assign mins=0
+  if (sub_mqtt_flag == false){
+    ret_value=false;
+  }
+  else{
+    if (light_start_resp ==1){
+      ret_value=true;
+    }
+    else{
+      ret_value=false;
+    }
+  }
+  sub_mqtt_flag=false;
+  return ret_value;
+}
+

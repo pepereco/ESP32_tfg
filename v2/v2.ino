@@ -5,9 +5,10 @@
 #include <string.h>
 #include <PubSubClient.h>
 #include <WiFiManager.h> 
-
 #include "config_flora.h"
 
+// sleep between to runs in seconds
+#define SLEEP_DURATION  100
 #define positions_per_floor 15
 #define VELOCITY_UP 100;
 #define VELOCITY_DOWN 100;
@@ -41,15 +42,16 @@ const position_plant array_positions_floor[positions_per_floor+1] ={
 
 //Global vars
 int vertical_pos_state;
-int angular_pos_state=60;    // variable to store the servo position
+int angular_pos_state=90;    // variable to store the servo position
 int current_step_horizontal = 0;
 int ml = 0;
 int mins =0;
+int light_start_resp=0;
+int sleep_time_resp=0;
 bool sub_mqtt_flag = false;
 
 
 int once=1;
-int counter=1;
 int start_pos=0;
 
 static RTC_NOINIT_ATTR  int pos_reset; //Position before the soft reset during an action
@@ -78,7 +80,6 @@ void setup()
 
   esp_reset_reason_t reason_reset;
   reason_reset = esp_reset_reason();
-
   if (reason_reset == ESP_RST_POWERON || reason_reset == ESP_RST_UNKNOWN  ){
     autoconnectAP(1);
   }
@@ -98,19 +99,28 @@ void setup()
 
 void loop(){
 
-  if (once==1){
-    /*
-    
-    if (start_pos ==1){
+  if (action_reset == 1){
+    flora_rutine();
+  }
+  else{
+    if (!request_sleep_time()){  
+      /*
+    	if (start_pos ==1){
       timerAlarmEnable(correction_servo_int);
       move_to_id(0);
       start_pos=0;
       timerAlarmDisable(correction_servo_int);
     }*/
-    light_rutine();
-    once =0;
+      if (request_start_lights()){
+        light_rutine();
+      }
+      else{
+        flora_rutine();
+      }
+    }
   }
-  
+ 
+  hibernate();
 }
 
 void get_position(int id, struct position_plant *pos){
@@ -131,6 +141,10 @@ void move_to_pos(struct position_plant *pos){
       timerAlarmEnable(correction_vertical_jam_int);
       Serial.println(pos->vertical);
     }
+    Serial.println("from");
+    Serial.println(vertical_pos_state);
+    Serial.println("to");
+    Serial.println(pos->vertical);
     vertical_pos(pos->vertical);
     timerAlarmDisable(correction_servo_int);
     timerAlarmDisable(correction_vertical_jam_int);
@@ -206,7 +220,7 @@ void autoconnectAP(int ap){
 
   }
   else {
- 
+    //Connect with saved credentials in RTC memory
     Serial.println("credentials wifi");
     Serial.println(ssid_wifi);
     Serial.println(pwd_wifi);
@@ -236,10 +250,27 @@ void callback_mqtt(char* topic, byte* message, unsigned int length) {
   }
   else{
     ret = strstr(topic, "light_resp");
-    if (ret)
+    if (ret){
         mins = atoi(messageTemp.c_str());
         Serial.println("in mins response");
         Serial.println(mins);
+      }
+    else{
+      ret = strstr(topic, "light_start_resp");
+      if (ret){
+          light_start_resp = atoi(messageTemp.c_str());
+          Serial.println("start lights response");
+          Serial.println(light_start_resp);
+      } 
+      else{
+      ret = strstr(topic, "sleep_time_resp");
+      if (ret){
+          sleep_time_resp = atoi(messageTemp.c_str());
+          Serial.println("start sleep_time_resp response");
+          Serial.println(sleep_time_resp);
+        } 
+      }
+    }
   }
 
   sub_mqtt_flag = true;
@@ -288,8 +319,7 @@ void connectMqtt() {
         connectWifi(ssid_wifi, pwd_wifi);
         connectMqtt();  
         break;
-      }
-      
+      }  
     }
   }
 
@@ -300,4 +330,44 @@ void connectMqtt() {
 void disconnectMqtt() {
   client.disconnect();
   Serial.println("MQTT disconnected");
+}
+
+void hibernate() {
+  disable_stepper_vertical();
+  disable_servo();
+  esp_sleep_enable_timer_wakeup(SLEEP_DURATION * 1000000ll);
+  Serial.println("Going to sleep now.");
+  delay(100);
+  esp_deep_sleep_start();
+}
+
+bool request_sleep_time(){
+  bool ret_value;
+  connectWifi(ssid_wifi, pwd_wifi);
+  connectMqtt();
+  client.subscribe((MQTT_BASE_TOPIC + "/" + "sleep_time_resp").c_str());
+  connectMqtt();
+  char buffer[64];
+  snprintf(buffer, 64, "%d", 1);
+  client.publish((MQTT_BASE_TOPIC + "/" + "sleep_time_req").c_str(), buffer); 
+  //Wait to receive mqtt response message from server
+  int start = millis();
+  while ((millis() - start < 10000) && (sub_mqtt_flag == false)){
+    client.loop();
+  }
+  client.unsubscribe((MQTT_BASE_TOPIC + "/" + "sleep_time_resp").c_str());
+  client.disconnect();
+  if (sub_mqtt_flag == false){
+    ret_value=false;
+  }
+  else{
+    if (sleep_time_resp ==1){
+      ret_value=true;
+    }
+    else{
+      ret_value=false;
+    }
+  }
+  sub_mqtt_flag=false;
+  return ret_value;
 }

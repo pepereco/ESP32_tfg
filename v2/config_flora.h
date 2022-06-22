@@ -4,10 +4,6 @@ char* FLORA_DEVICES[] = {
 };
 char* floraMacAddress = "C4:7C:8D:6E:17:07";
 
-// sleep between to runs in seconds
-#define SLEEP_DURATION 30 * 60
-// emergency hibernate countdown in seconds
-#define EMERGENCY_HIBERNATE 3 * 60
 // how often should a device be retried in a run when something fails
 #define RETRY 3
 

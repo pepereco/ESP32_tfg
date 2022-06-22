@@ -1,12 +1,12 @@
 
 //secuencia media fase
-const int numSteps = 8;
-const int stepsLookup[8] = { B1000, B1100, B0100, B0110, B0010, B0011, B0001, B1001 };
+int numSteps = 8;
+int stepsLookup[8] = { B1000, B1100, B0100, B0110, B0010, B0011, B0001, B1001 };
 
 //Params horizontal stepper
-int motorSpeedHoriz = 1200;   //variable para fijar la velocidad
+const int motorSpeedHoriz = 1200;   //variable para fijar la velocidad
 
-int stepsPerRev = 4076;  // pasos para una vuelta completa
+const int stepsPerRev = 4076;  // pasos para una vuelta completa
 
 int stepCounter_horiz = 0;     // contador para los pasos
 

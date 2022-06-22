@@ -1,7 +1,6 @@
 
 int vel_clockwise=50;
 int vel_anticlockwise=50;
-int test;
 
 void IRAM_ATTR servo_correction_cb() {
   Serial.println("in servo correction cb");

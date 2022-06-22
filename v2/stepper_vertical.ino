@@ -43,25 +43,6 @@ void IRAM_ATTR vertical_pos1_interruption()
   
 }
 
-/*
-
-void IRAM_ATTR vertical_pos2_interruption()
-{
-
-  Serial.println("reajuste int pos2 out");
-  if (vertical_pos_state==2){
-    Serial.println("reajuste int pos2 in");
-    reajuste_pos=1;
-    timerAlarmEnable(correction_vertical_int);
-    //vertical_pos_2();
-  }
-  else{
-    detachInterrupt(final_carrera_p2);
-  }
-  
-
-}*/
-
 void IRAM_ATTR vertical_pos3_interruption()
 {
 
@@ -75,22 +56,6 @@ void IRAM_ATTR vertical_pos3_interruption()
   }
 
 }
-
-/*
-void IRAM_ATTR vertical_pos4_interruption()
-{
-
-  if (vertical_pos_state==4){
-    reajuste_pos=1;
-    timerAlarmEnable(correction_vertical_int);
-    //vertical_pos_4();
-  }
-  else{
-    detachInterrupt(final_carrera_p4);
-  }
-  
-}*/
-
 
 void IRAM_ATTR time_cb() {
 
@@ -207,7 +172,7 @@ void vertical_pos_1(){
     //makes 400*3 pulses for being on top of button
     digitalWrite(dirPin,HIGH);
     vertical_velocity=VELOCITY_UP;
-    for(int x = 0; x < steps_ref*10; x++) {
+    for(int x = 0; x < steps_ref*5; x++) {
       digitalWrite(stepPin,HIGH);
       delayMicroseconds(vertical_velocity);
       digitalWrite(stepPin,LOW);

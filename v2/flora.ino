@@ -53,7 +53,7 @@ BLERemoteService* getFloraService(BLEClient* floraClient) {
 bool forceFloraServiceDataMode(BLERemoteService* floraService) {
   //We force the flora mi to publish the sensors characteristic by writing some bytes to the write characteristic.
   BLERemoteCharacteristic* floraCharacteristic;
-  
+
   // get device mode characteristic, needs to be changed to read data
   Serial.println("- Force device in data mode");
   floraCharacteristic = nullptr;
@@ -126,7 +126,7 @@ bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopi
   int light = val[3] + val[4] * 256;
   Serial.print("-- Light: ");
   Serial.println(light);
- 
+
   int conductivity = val[8] + val[9] * 256;
   Serial.print("-- Conductivity: ");
   Serial.println(conductivity);
@@ -148,15 +148,15 @@ bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopi
 
   connectMqtt();
   snprintf(buffer, 64, "%f", temperature);
-  client.publish((baseTopicPub + "temperature").c_str(), buffer); 
+  client.publish((baseTopicPub + "temperature").c_str(), buffer);
   snprintf(buffer, 64, "%d", light);
   client.publish((baseTopicPub + "light").c_str(), buffer);
   snprintf(buffer, 64, "%d", conductivity);
   client.publish((baseTopicPub + "conductivity").c_str(), buffer);
-  snprintf(buffer, 64, "%d", moisture); 
+  snprintf(buffer, 64, "%d", moisture);
   client.publish((baseTopicPub + "moisture").c_str(), buffer);
 
-  
+
   //Wait to receive mqtt response message from server
   int start = millis();
   while ((millis() - start < 10000) && (sub_mqtt_flag == false)){
@@ -168,7 +168,7 @@ bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopi
     ml = 100;
   }
   sub_mqtt_flag=false;
-  
+
   return true;
 }
 
@@ -216,12 +216,7 @@ bool processFloraDevice(BLEAddress floraAddress, char* deviceMacAddress, int try
 }
 
 /*
-void hibernate() {
-  esp_sleep_enable_timer_wakeup(SLEEP_DURATION * 1000000ll);
-  Serial.println("Going to sleep now.");
-  delay(100);
-  esp_deep_sleep_start();
-}
+
 
 void delayedHibernate(void *parameter) {
   delay(EMERGENCY_HIBERNATE*1000); // delay for five minutes
@@ -238,7 +233,7 @@ void flora_setup() {
   watchdog_flora = timerBegin(2, 80, true);//configurem timer amb preescaler a 80
   timerAttachInterrupt(watchdog_flora, &watchdog_flora_cb, true);
   //timerAlarmWrite(watchdog_flora, 60000000, true); //definim temps en microsegons 1000000microsegons =1 segon, aixo es degut al preescaler de 80.
-  timerAlarmWrite(watchdog_flora, 20000000, true);
+  timerAlarmWrite(watchdog_flora, 30000000, true);
   timerAlarmDisable(watchdog_flora);
 
   esp_reset_reason_t reason_reset;
@@ -246,7 +241,7 @@ void flora_setup() {
 
   if (reason_reset == ESP_RST_POWERON || reason_reset == ESP_RST_UNKNOWN  ){
     pos_reset=15;
-    action_reset =0; 
+    action_reset =0;
   }
 
 
@@ -254,20 +249,13 @@ void flora_setup() {
   Serial.println(pos_reset);
 }
 
-/*
-void disconnect_wifi_mqtt(){
-  // disconnect wifi and mqtt
-  disconnectWifi();
-  disconnectMqtt();
-}*/
-
 
 void flora_read_send_data(int pos_id) {
 
   Serial.println("pos before reset");
   Serial.println(pos_id);
 
-  //Enable flora action reset 
+  //Enable flora action reset
   action_reset=1;
 
   //Start watchdog
@@ -287,17 +275,19 @@ void flora_read_send_data(int pos_id) {
       }
       delay(1000);
     }
-    delay(1500);  
+    delay(1500);
   }
   action_reset = 0;
   timerAlarmDisable(watchdog_flora);
 }
 
 void flora_rutine(){
+  Serial.println("IN FLORA RUTINE");
   enable_stepper_vertical();
   enable_servo();
   ml =0;
   for (int i = pos_reset; i<=60;i++){
+  //for (int i = pos_reset; i<=17;i++){
     Serial.println("this is the new pos");
     Serial.println(i);
     //canvi de pis
@@ -308,8 +298,8 @@ void flora_rutine(){
       }
     //Acabem
     else if (i==60){
-        move_to_id(30); 
-        move_to_id(45); 
+        move_to_id(30);
+        move_to_id(45);
         disable_stepper_vertical();
         disable_servo();
         pos_reset=15;
@@ -319,11 +309,11 @@ void flora_rutine(){
       //No hi ha reset
       if (action_reset == 0){
         if (i==15){
-          move_to_id(0);  
+          move_to_id(0);
         }
         else if (i==45){
-          move_to_id(30); 
-          
+          move_to_id(30);
+
         }
         else{
           Serial.println(i-15);
@@ -334,7 +324,7 @@ void flora_rutine(){
           disable_stepper_vertical();
           servo_hard_shake();
           flora_read_send_data(i);
-        }     
+        }
     }
     //HI ha reset
     else if (action_reset == 1){
@@ -348,10 +338,8 @@ void flora_rutine(){
       disable_servo();
       flora_read_send_data(pos_reset);
       }
-    } 
+    }
     water(ml);
     pos_reset+=1;
   }
 }
-    
-  
