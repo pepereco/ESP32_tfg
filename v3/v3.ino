@@ -97,7 +97,9 @@ void setup()
 void loop(){
   //Si no hi ha software reset
   if (action_reset == 0){
+    //Pregunta al servidor si pot seguir dormir
     if (!request_sleep_time()){
+      //Pregunta al servidor si ha de començar la rutina de llums
       if (request_start_lights()){
         light_rutine();
       }
@@ -106,12 +108,12 @@ void loop(){
       }
     }
   }
-  //Si no hi ha software reset provocat pel sensor flora
+  //Si no hi ha software reset provocat pel sensor flora mi
   else if (action_reset == 1){
     flora_rutine();
   }
+  //Tornem a dormir
   hibernate();
-
 }
 
 //Funcio que retorna per parametre la posicio pos a partir del id

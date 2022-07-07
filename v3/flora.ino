@@ -12,7 +12,7 @@ static BLEUUID uuid_write_mode("00001a00-0000-1000-8000-00805f9b34fb");
 
 TaskHandle_t hibernateTaskHandle = NULL;
 
-
+/////////////
 void IRAM_ATTR watchdog_flora_cb() {
   Serial.println("doing reset");
   disconnectMqtt();
@@ -75,7 +75,7 @@ bool forceFloraServiceDataMode(BLERemoteService* floraService) {
   delay(500);
   return true;
 }
-
+////////////////////////
 bool readFloraDataCharacteristic(BLERemoteService* floraService, String baseTopicPub, String baseTopicSub) {
   //Read flora sensors characteristic and format the data
   BLERemoteCharacteristic* floraCharacteristic = nullptr;
@@ -185,7 +185,7 @@ bool processFloraService(BLERemoteService* floraService, char* deviceMacAddress,
 
   return dataSuccess;
 }
-
+////////////////////////////
 bool processFloraDevice(BLEAddress floraAddress, char* deviceMacAddress, int tryCount, int pos_id) {
   Serial.print("Processing Flora device at ");
   Serial.print(floraAddress.toString().c_str());
@@ -241,13 +241,13 @@ void flora_setup() {
   Serial.println(pos_reset);
 }
 
-
+////////////////////////////
 void flora_read_send_data(int pos_id) {
 
   Serial.println("pos before reset");
   Serial.println(pos_id);
 
-  //Enable flora action reset
+  //Action reset to one for detecting that the reset comes from flora sensor reading error
   action_reset=1;
 
   //Start watchdog
@@ -269,19 +269,19 @@ void flora_read_send_data(int pos_id) {
     }
     delay(1500);
   }
+  //Action reset to 0 so if there is an error is not from flora sensor mi
   action_reset = 0;
+  //Disable watchdog
   timerAlarmDisable(watchdog_flora);
 }
 
+///////////////////////
 void flora_rutine(){
   Serial.println("IN FLORA RUTINE");
   enable_stepper_vertical();
   enable_servo();
   for (int i = pos_reset; i<=60;i++){
     ml=0;
-  //for (int i = pos_reset; i<=17;i++){
-    Serial.println("this is the new pos");
-    Serial.println(i);
     //canvi de pis
     if (i==30){
         move_to_id(0);
@@ -298,7 +298,7 @@ void flora_rutine(){
         break;
       }
     else{
-      //No hi ha reset
+      //No hi ha soft reset 
       if (action_reset == 0){
         if (i==15){
           move_to_id(0);
@@ -308,28 +308,34 @@ void flora_rutine(){
 
         }
         else{
-          Serial.println(i-15);
+          //Moure a la posició superior a on es clavarà el sensor flora mi
           move_to_id(i-15);
           delay(3000);
-          Serial.println(i);
+          //Moure a la posició superficial, per clavar el sensor flora mi
           move_to_id(i);
+          //Parem motors
           disable_stepper_vertical();
+          disable_servo();
+          //Llegim dades, enviem per MQTT al servidor i guardem resposta a ml
           flora_read_send_data(i);
         }
     }
-    //HI ha reset
+    //Hi ha soft reset
     else if (action_reset == 1){
-      //Localitzem el robot despres del reset
+      //Recuperem posicio robot
       struct position_plant pos;
       get_position(pos_reset, &pos);
       vertical_pos_state = pos.vertical;
       current_step_horizontal = pos.horizontal;
       angular_pos_state = pos.angular;
+      //Parem motors
       disable_stepper_vertical();
       disable_servo();
+      //Llegim dades, enviem per MQTT al servidor i guardem resposta a ml
       flora_read_send_data(pos_reset);
       }
     }
+    //Regem en funcio de la resposta del servidor
     water(ml);
     pos_reset+=1;
   }
